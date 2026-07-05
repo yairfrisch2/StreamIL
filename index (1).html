@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>StreamIL</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--red:#e50914;--bg:#0a0a0a;--card:#141414;--text:#fff;--muted:#999}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;min-height:100vh}
+
+.hero{background:linear-gradient(180deg,#000,#0a0a0a);padding:32px 40px 24px;display:flex;align-items:center;gap:20px}
+.logout-btn{background:transparent;border:1px solid #444;color:#aaa;border-radius:20px;padding:7px 16px;font-size:.82rem;cursor:pointer;white-space:nowrap;transition:.2s;margin-right:auto}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+.logo{font-size:2rem;font-weight:900;color:var(--red);letter-spacing:-1px;white-space:nowrap}
+.search-wrap{flex:1;max-width:600px;position:relative}
+.search-wrap input{width:100%;background:#1a1a1a;border:2px solid #333;border-radius:50px;padding:14px 56px 14px 20px;color:#fff;font-size:1rem;outline:none;transition:.2s}
+.search-wrap input:focus{border-color:var(--red);background:#222}
+.search-wrap button{position:absolute;left:6px;top:50%;transform:translateY(-50%);background:var(--red);border:none;border-radius:50px;padding:8px 20px;color:#fff;font-weight:600;cursor:pointer;font-size:.9rem}
+.search-wrap button:hover{background:#b2070f}
+
+.filters{display:flex;gap:10px;padding:0 40px 20px;flex-wrap:wrap}
+.filter-btn{background:#1a1a1a;border:1px solid #333;color:#aaa;border-radius:20px;padding:6px 16px;font-size:.85rem;cursor:pointer;transition:.2s}
+.filter-btn:hover,.filter-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+
+.section-title{padding:0 40px 16px;font-size:1.1rem;color:#ccc;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:16px;padding:0 40px 40px}
+
+.card{background:var(--card);border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative}
+.card:hover{transform:scale(1.04);box-shadow:0 8px 32px rgba(229,9,20,.35);z-index:2}
+.card img,.no-img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#1a1a1a}
+.no-img{display:flex;align-items:center;justify-content:center;font-size:3rem;color:#333}
+.card-info{padding:10px 12px 12px}
+.card-title{font-size:.82rem;font-weight:600;line-height:1.3;margin-bottom:4px}
+.card-meta{display:flex;align-items:center;gap:6px;margin-top:4px}
+.card-year{font-size:.72rem;color:var(--muted)}
+.badge{font-size:.65rem;padding:2px 7px;border-radius:3px;font-weight:700;background:var(--red)}
+.rating{font-size:.72rem;color:#f5c518;margin-right:auto}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#111;border-radius:12px;width:100%;max-width:960px;overflow:hidden;border:1px solid #222;display:flex;flex-direction:column;max-height:95vh}
+
+.modal-top{display:flex;gap:16px;padding:16px 20px;background:#151515;border-bottom:1px solid #222;align-items:center}
+.modal-poster{width:70px;flex-shrink:0;border-radius:6px;overflow:hidden}
+.modal-poster img{width:100%;display:block}
+.modal-info{flex:1;min-width:0}
+.modal-title{font-size:1.2rem;font-weight:800;margin-bottom:3px}
+.modal-sub{font-size:.78rem;color:var(--muted)}
+.modal-close{background:#222;border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;flex-shrink:0}
+.modal-close:hover{background:var(--red)}
+
+.controls{padding:10px 16px;background:#111;border-bottom:1px solid #1a1a1a;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.controls select{background:#1e1e1e;color:#fff;border:1px solid #333;border-radius:6px;padding:7px 12px;font-size:.88rem;outline:none;cursor:pointer}
+.controls select:focus{border-color:var(--red)}
+.play-btn{background:var(--red);color:#fff;border:none;border-radius:6px;padding:8px 22px;font-weight:700;cursor:pointer;font-size:.9rem}
+.play-btn:hover{background:#b2070f}
+
+/* PLAYER WRAPPER */
+.player-wrap{position:relative;background:#000}
+.player-inner{position:relative;padding-top:56.25%}
+.player-inner iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+.player-inner .waiting{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#444;font-size:.9rem}
+.waiting .big{font-size:3rem}
+
+/* FULLSCREEN BUTTON */
+.player-toolbar{display:flex;justify-content:flex-end;padding:6px 10px;background:#0a0a0a;border-top:1px solid #1a1a1a}
+.fs-btn{background:#1e1e1e;border:1px solid #333;color:#ccc;border-radius:6px;padding:5px 14px;font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.15s}
+.fs-btn:hover{background:#333;color:#fff}
+
+.spinner{text-align:center;padding:60px;color:#555;font-size:.9rem}
+
+/* PHONE GATE */
+.gate{position:fixed;inset:0;background:#0a0a0a;z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px}
+.gate.hidden{display:none}
+.gate-box{background:#141414;border:1px solid #222;border-radius:14px;padding:36px 32px;width:100%;max-width:380px;text-align:center}
+.gate-logo{font-size:2.2rem;font-weight:900;color:var(--red);letter-spacing:-1px;margin-bottom:6px}
+.gate-sub{color:var(--muted);font-size:.9rem;margin-bottom:24px}
+.gate-box input{width:100%;background:#1a1a1a;border:2px solid #333;border-radius:8px;padding:13px 16px;color:#fff;font-size:1.05rem;outline:none;text-align:center;letter-spacing:1px;transition:.2s}
+.gate-box input:focus{border-color:var(--red)}
+.gate-box button{width:100%;background:var(--red);border:none;border-radius:8px;padding:13px;color:#fff;font-weight:700;font-size:1rem;cursor:pointer;margin-top:12px;transition:.2s}
+.gate-box button:hover{background:#b2070f}
+.gate-box button:disabled{background:#555;cursor:wait}
+.gate-msg{min-height:38px;font-size:.85rem;color:#999;margin-top:14px;line-height:1.5}
+.gate-note{font-size:.72rem;color:#555;margin-top:8px}
+
+@media(max-width:600px){
+  .hero{padding:16px;flex-direction:column;align-items:stretch}
+  .filters,.grid,.section-title{padding-left:12px;padding-right:12px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <div class="gate-logo">StreamIL</div>
+    <div class="gate-sub">🔒 כניסה למורשים בלבד</div>
+    <input type="password" id="gatePhone" placeholder="סיסמה" dir="ltr" maxlength="30"/>
+    <button id="gateBtn" onclick="checkAccess()">כניסה</button>
+    <div class="gate-msg" id="gateMsg">טוען...</div>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="logo">StreamIL</div>
+  <div class="search-wrap">
+    <input type="text" id="q" placeholder="חפש סרט, סדרה..." autofocus/>
+    <button onclick="doSearch()">חפש</button>
+  </div>
+  <button class="logout-btn" onclick="logout()">התנתק</button>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" onclick="setFilter('multi',this)">הכל</button>
+  <button class="filter-btn" onclick="setFilter('tv',this)">סדרות</button>
+  <button class="filter-btn" onclick="setFilter('movie',this)">סרטים</button>
+  <button class="filter-btn" onclick="loadTrending()">🔥 פופולרי</button>
+</div>
+
+<div class="section-title" id="sectionTitle">פופולרי השבוע</div>
+<div class="grid" id="grid"><div class="spinner">טוען...</div></div>
+
+<div class="overlay" id="overlay" onclick="maybeClose(event)">
+  <div class="modal" id="modal">
+
+    <div class="modal-top">
+      <div class="modal-poster"><img id="mPoster" src="" alt="" style="display:none"/></div>
+      <div class="modal-info">
+        <div class="modal-title" id="mTitle"></div>
+        <div class="modal-sub" id="mSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div class="controls" id="controls" style="display:none">
+      <select id="sSeason" onchange="onSeasonChange()"></select>
+      <select id="sEp"></select>
+      <button class="play-btn" onclick="play()">▶ הפעל</button>
+    </div>
+
+    <div class="player-wrap" id="playerWrap">
+      <div class="player-inner" id="playerInner">
+        <div class="waiting" id="waiting"><span class="big">▶</span><span>בחר פרק ולחץ הפעל</span></div>
+        <iframe id="frame" allowfullscreen allow="autoplay;fullscreen;picture-in-picture" style="display:none"></iframe>
+        <!-- Subtitle text overlay ON the video -->
+        <div id="subOverlay" style="display:none;position:absolute;bottom:60px;left:8%;right:8%;z-index:9;text-align:center;pointer-events:none">
+          <div id="subText" style="color:#fff;font-size:1.25rem;font-weight:700;line-height:1.5;text-shadow:2px 2px 6px #000,0 0 12px #000;background:rgba(0,0,0,.55);padding:4px 14px;border-radius:6px;display:inline-block"></div>
+        </div>
+        <!-- Overlay controls -->
+        <div id="overlayBtns" style="position:absolute;top:10px;left:10px;z-index:10;display:none;gap:6px">
+          <button onclick="goFullscreen()" style="background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.8rem;backdrop-filter:blur(4px)">⛶ מסך מלא</button>
+          <button id="subBtn" onclick="loadSubtitles()" style="display:none;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.8rem;backdrop-filter:blur(4px)">💬 כתוביות</button>
+        </div>
+        <!-- Subtitle sync controls overlay (bottom-left of video) -->
+        <div id="subBar" style="display:none;position:absolute;bottom:0;left:0;right:0;z-index:10;background:rgba(0,0,0,.8);padding:6px 10px;backdrop-filter:blur(4px)">
+          <div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">
+            <button onclick="subOffset(-1000)" style="background:#222;border:1px solid #444;color:#ccc;border-radius:6px;padding:3px 8px;font-size:.72rem;cursor:pointer">◀◀ -1s</button>
+            <button onclick="subOffset(-200)" style="background:#222;border:1px solid #444;color:#ccc;border-radius:6px;padding:3px 8px;font-size:.72rem;cursor:pointer">◀ -0.2s</button>
+            <button id="syncBtn" onclick="startSubSync()" style="background:#e50914;border:none;color:#fff;border-radius:6px;padding:3px 12px;font-size:.78rem;cursor:pointer;font-weight:700">▶ סנכרן</button>
+            <button onclick="subOffset(200)" style="background:#222;border:1px solid #444;color:#ccc;border-radius:6px;padding:3px 8px;font-size:.72rem;cursor:pointer">+0.2s ▶</button>
+            <button onclick="subOffset(1000)" style="background:#222;border:1px solid #444;color:#ccc;border-radius:6px;padding:3px 8px;font-size:.72rem;cursor:pointer">+1s ▶▶</button>
+            <button onclick="stopSubs()" style="background:#333;border:none;color:#aaa;border-radius:6px;padding:3px 8px;font-size:.72rem;cursor:pointer">✕</button>
+            <span id="subStatus" style="color:#aaa;font-size:.72rem"></span>
+          </div>
+        </div>
+      </div>
+      <div class="player-toolbar">
+        <div id="srcBtns" style="display:flex;gap:6px;align-items:center;flex:1;flex-wrap:wrap"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── AUTH GATE (סיסמאות מנוהלות בגוגל שיטס) ──────────────────── */
+const BOT_URL = 'https://m-wnx4.onrender.com';
+
+// כתובת ה-CSV המפורסם של גיליון הסיסמאות - יש להחליף (ראה SETUP.md)
+const SHEET_CSV_URL = 'https://REPLACE_ME'; // הדבק כאן את קישור ה-CSV שקיבלת מפרסום הגיליון
+
+const SESSION_KEY = 'streamil_session'; // { pass, version }
+
+function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch(e) { return null; } }
+function setSession(obj) { localStorage.setItem(SESSION_KEY, JSON.stringify(obj)); }
+function clearSession() { localStorage.removeItem(SESSION_KEY); }
+
+function parseCsv(text) {
+  // פרסור CSV בסיסי (Google Sheets עוטף בגרשיים רק כשצריך)
+  return text.replace(/\r/g, '').split('\n').map(line =>
+    line.split(',').map(cell => cell.replace(/^"|"$/g, '').trim())
+  );
+}
+
+async function fetchSheetState() {
+  const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error('שגיאה בטעינת הגיליון');
+  const rows = parseCsv(await res.text());
+  // שורה 1 = כותרות (סיסמה, גרסה) - מדלגים עליה
+  const dataRows = rows.slice(1);
+  const passwords = dataRows.map(r => r[0]).filter(p => p);
+  const version = (dataRows[0] && dataRows[0][1]) ? dataRows[0][1] : '';
+  return { passwords, version };
+}
+
+function showGate(message, isError) {
+  document.getElementById('gate').classList.remove('hidden');
+  const msg = document.getElementById('gateMsg');
+  msg.style.color = isError ? '#e50914' : '#999';
+  msg.textContent = message || '';
+}
+function hideGate() { document.getElementById('gate').classList.add('hidden'); }
+
+async function checkAccess() {
+  const p = document.getElementById('gatePhone').value;
+  const btn = document.getElementById('gateBtn');
+  btn.disabled = true;
+  try {
+    const { passwords, version } = await fetchSheetState();
+    if (passwords.includes(p)) {
+      setSession({ pass: p, version });
+      hideGate();
+    } else {
+      showGate('סיסמה שגויה 😕', true);
+    }
+  } catch (e) {
+    showGate('שגיאה בבדיקת הסיסמה מול הגיליון - נסה שוב', true);
+  }
+  btn.disabled = false;
+}
+
+(async () => {
+  document.getElementById('gatePhone').focus();
+  const session = getSession();
+  if (!session) { showGate(); return; }
+  try {
+    const { passwords, version } = await fetchSheetState();
+    if (version !== session.version) {
+      // תא הגרסה השתנה - ניתוק מכל המכשירים
+      clearSession();
+      showGate('הגישה עודכנה - יש להתחבר מחדש', true);
+    } else if (!passwords.includes(session.pass)) {
+      // הסיסמה הספציפית שלו הוסרה - מנותק רק הוא, לא כולם
+      clearSession();
+      showGate('הגישה שלך בוטלה - יש להתחבר מחדש', true);
+    } else {
+      hideGate();
+    }
+  } catch (e) {
+    // אם הגיליון לא זמין רגעית, משאירים את השער מוצג כדי לא לפרוץ גישה בטעות
+    showGate('שגיאה בחיבור לגיליון - נסה שוב', true);
+  }
+})();
+
+document.getElementById('gatePhone').addEventListener('keydown', e => { if (e.key === 'Enter') checkAccess(); });
+
+function logout() {
+  clearSession();
+  showGate();
+  document.getElementById('gatePhone').value = '';
+}
+
+/* ── SITE ───────────────────────────────────────────────────── */
+const KEY = 'e7eac9b0420be7d93d03abfd76f5eac0';
+const API = 'https://api.themoviedb.org/3';
+const IMG = 'https://image.tmdb.org/t/p/w300';
+let filterType = 'multi';
+let cur = null;
+
+function allSources(id, type, s, e) {
+  if (type === 'movie') return [
+    {name:'🔤 VidLink (כתוביות)', url:`https://vidlink.pro/movie/${id}?primaryLang=he`},
+    {name:'VidFast',   url:`https://vidfast.pro/movie/${id}`},
+    {name:'VidSrc',    url:`https://vidsrc.to/embed/movie/${id}`},
+    {name:'Embed.su',  url:`https://embed.su/embed/movie/${id}`},
+  ];
+  return [
+    {name:'🔤 VidLink (כתוביות)', url:`https://vidlink.pro/tv/${id}/${s}/${e}?primaryLang=he`},
+    {name:'VidFast',   url:`https://vidfast.pro/tv/${id}/${s}/${e}`},
+    {name:'VidSrc',    url:`https://vidsrc.to/embed/tv/${id}/${s}/${e}`},
+    {name:'Embed.su',  url:`https://embed.su/embed/tv/${id}/${s}/${e}`},
+  ];
+}
+
+function embedUrl(id, type, s, e) {
+  return allSources(id, type, s, e)[0].url;
+}
+
+async function doSearch() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  document.getElementById('sectionTitle').textContent = `תוצאות עבור "${q}"`;
+  showGrid('<div class="spinner">מחפש...</div>');
+  try {
+    const endpoint = filterType === 'multi'
+      ? `${API}/search/multi?api_key=${KEY}&query=${enc(q)}&language=he-IL`
+      : `${API}/search/${filterType}?api_key=${KEY}&query=${enc(q)}&language=he-IL`;
+    const data = await get(endpoint);
+    const items = (data.results||[])
+      .filter(i => filterType !== 'multi' || i.media_type === 'tv' || i.media_type === 'movie')
+      .slice(0, 24);
+    renderCards(items, filterType !== 'multi' ? filterType : null);
+  } catch(e) { showGrid('<div class="spinner">שגיאה בחיפוש</div>'); }
+}
+
+async function loadTrending() {
+  document.getElementById('sectionTitle').textContent = '🔥 פופולרי השבוע';
+  showGrid('<div class="spinner">טוען...</div>');
+  const t = filterType === 'movie' ? 'movie' : filterType === 'tv' ? 'tv' : 'all';
+  const data = await get(`${API}/trending/${t}/week?api_key=${KEY}&language=he-IL`);
+  renderCards(data.results || []);
+}
+
+function setFilter(t, btn) {
+  filterType = t;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function renderCards(items, forceType) {
+  if (!items.length) { showGrid('<div class="spinner">לא נמצאו תוצאות</div>'); return; }
+  showGrid(items.map(item => {
+    const type = forceType || item.media_type || 'movie';
+    const title = item.title || item.name || '—';
+    const year = (item.release_date || item.first_air_date || '').slice(0, 4);
+    const rating = item.vote_average ? item.vote_average.toFixed(1) : '';
+    const poster = item.poster_path
+      ? `<img src="${IMG}${item.poster_path}" alt="" loading="lazy"/>`
+      : `<div class="no-img">🎬</div>`;
+    return `<div class="card" onclick="openItem(${item.id},'${type}','${esc(title)}','${item.poster_path||''}','${year}')">
+      ${poster}
+      <div class="card-info">
+        <div class="card-title">${title}</div>
+        <div class="card-meta">
+          <span class="card-year">${year}</span>
+          <span class="badge">${type==='tv'?'סדרה':'סרט'}</span>
+          ${rating ? `<span class="rating">★ ${rating}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join(''));
+}
+
+async function openItem(id, type, title, poster, year) {
+  cur = { id, type, title };
+  document.getElementById('mTitle').textContent = title;
+  document.getElementById('mSub').textContent = year + (type === 'tv' ? ' · סדרה' : ' · סרט');
+  const p = document.getElementById('mPoster');
+  if (poster) { p.src = IMG + poster; p.style.display = 'block'; }
+  else p.style.display = 'none';
+  resetPlayer();
+  document.getElementById('overlay').classList.add('open');
+
+  if (type === 'tv') {
+    document.getElementById('controls').style.display = 'flex';
+    await loadSeasons(id);
+  } else {
+    document.getElementById('controls').style.display = 'none';
+    const srcs = allSources(id, 'movie');
+    loadFrame(srcs[0].url, srcs);
+  }
+}
+
+async function loadSeasons(id) {
+  const sel = document.getElementById('sSeason');
+  sel.innerHTML = '<option>טוען...</option>';
+  const d = await get(`${API}/tv/${id}?api_key=${KEY}&language=he-IL`);
+  const seasons = (d.seasons || []).filter(s => s.season_number > 0);
+  sel.innerHTML = seasons.map(s =>
+    `<option value="${s.season_number}">${s.name || 'עונה ' + s.season_number}</option>`
+  ).join('');
+  await loadEps();
+}
+
+async function loadEps() {
+  const s = document.getElementById('sSeason').value;
+  const sel = document.getElementById('sEp');
+  sel.innerHTML = '<option>טוען...</option>';
+  const d = await get(`${API}/tv/${cur.id}/season/${s}?api_key=${KEY}&language=he-IL`);
+  sel.innerHTML = (d.episodes || []).map(e =>
+    `<option value="${e.episode_number}">פרק ${e.episode_number}${e.name ? ' · ' + e.name : ''}</option>`
+  ).join('');
+}
+
+async function onSeasonChange() {
+  resetPlayer();
+  await loadEps();
+}
+
+function play() {
+  const s = document.getElementById('sSeason').value;
+  const e = document.getElementById('sEp').value;
+  const srcs = allSources(cur.id, 'tv', s, e);
+  loadFrame(srcs[0].url, srcs);
+}
+
+function loadFrame(url, sources) {
+  const f = document.getElementById('frame');
+  f.src = url;
+  f.style.display = 'block';
+  document.getElementById('waiting').style.display = 'none';
+  document.getElementById('overlayBtns').style.display = 'flex';
+  if (sources) renderSrcBtns(sources, url);
+  stopSubs();
+  document.getElementById('subBtn').style.display = 'flex';
+}
+
+/* ── SUBTITLES ──────────────────────────────────────────────── */
+let subEntries = [], subStart = null, subDrift = 0, subTimer = null;
+
+function parseSRT(txt) {
+  const entries = [];
+  const blocks = txt.replace(/\r/g,'').trim().split(/\n\s*\n/);
+  for (const b of blocks) {
+    const lines = b.trim().split('\n');
+    if (lines.length < 3) continue;
+    const m = lines[1].match(/(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)/);
+    if (!m) continue;
+    const t = (h,mn,s,ms) => +h*3600000 + +mn*60000 + +s*1000 + +ms;
+    entries.push({ start: t(m[1],m[2],m[3],m[4]), end: t(m[5],m[6],m[7],m[8]), text: lines.slice(2).join('\n').replace(/<[^>]+>/g,'') });
+  }
+  return entries;
+}
+
+async function loadSubtitles() {
+  if (!cur) return;
+  const btn = document.getElementById('subBtn');
+  btn.disabled = true; btn.textContent = '⏳ טוען...';
+  document.getElementById('subStatus').textContent = '';
+  const type = cur.type === 'tv' ? 'tv' : 'movie';
+  const season = document.getElementById('sSeason')?.value || 1;
+  const ep = document.getElementById('sEp')?.value || 1;
+  let url = `${BOT_URL}/subtitles?tmdb_id=${cur.id}&type=${type}`;
+  if (type === 'tv') url += `&season=${season}&ep=${ep}`;
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const text = await r.text();
+    console.log('[StreamIL subtitles] response:', text.slice(0, 200));
+    let parsed;
+    try { parsed = JSON.parse(text); } catch(e) { parsed = null; }
+    if (parsed?.error) throw new Error(parsed.error);
+    subEntries = parseSRT(text);
+    if (!subEntries.length) throw new Error('לא ניתן לפרסר כתוביות');
+    document.getElementById('subBar').style.display = 'flex';
+    document.getElementById('subOverlay').style.display = 'block';
+    document.getElementById('subStatus').textContent = `נטענו ${subEntries.length} — לחץ סנכרן`;
+    btn.textContent = '✅ כתוביות טעונות';
+  } catch(e) {
+    console.error('[StreamIL subtitles]', e);
+    document.getElementById('subStatus').textContent = '';
+    btn.textContent = '💬 כתוביות';
+    alert('כתוביות: ' + e.message);
+  }
+  btn.disabled = false;
+}
+
+function startSubSync() {
+  subStart = Date.now();
+  subDrift = 0;
+  if (subTimer) clearInterval(subTimer);
+  subTimer = setInterval(() => {
+    const elapsed = Date.now() - subStart + subDrift;
+    const entry = subEntries.find(e => elapsed >= e.start && elapsed <= e.end);
+    document.getElementById('subText').innerHTML = entry ? entry.text.replace(/\n/g,'<br>') : '';
+  }, 100);
+  document.getElementById('syncBtn').textContent = '🔄 מסונכרן';
+  document.getElementById('subStatus').textContent = 'פועל';
+}
+
+function subOffset(ms) { subDrift += ms; }
+
+function stopSubs() {
+  if (subTimer) { clearInterval(subTimer); subTimer = null; }
+  subEntries = []; subStart = null; subDrift = 0;
+  document.getElementById('subBar').style.display = 'none';
+  document.getElementById('subOverlay').style.display = 'none';
+  document.getElementById('subText').textContent = '';
+  document.getElementById('subBtn').style.display = 'none';
+  document.getElementById('syncBtn').textContent = '▶ סנכרן';
+}
+
+function renderSrcBtns(sources, activeUrl) {
+  document.getElementById('srcBtns').innerHTML =
+    '<span style="font-size:.72rem;color:#555">שרת:</span>' +
+    sources.map(s =>
+      `<button onclick="switchSource('${s.url}',this)" style="background:${s.url===activeUrl?'#e50914':'#1e1e1e'};color:${s.url===activeUrl?'#fff':'#aaa'};border:1px solid #333;border-radius:5px;padding:4px 11px;font-size:.75rem;cursor:pointer">${s.name}</button>`
+    ).join('');
+}
+
+function switchSource(url, btn) {
+  document.querySelectorAll('#srcBtns button').forEach(b => { b.style.background='#1e1e1e'; b.style.color='#aaa'; });
+  btn.style.background = '#e50914'; btn.style.color = '#fff';
+  document.getElementById('frame').src = url;
+}
+
+function resetPlayer() {
+  const f = document.getElementById('frame');
+  f.src = ''; f.style.display = 'none';
+  document.getElementById('waiting').style.display = 'flex';
+  document.getElementById('overlayBtns').style.display = 'none';
+  document.getElementById('srcBtns').innerHTML = '';
+}
+
+function goFullscreen() {
+  const el = document.getElementById('playerWrap');
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+  resetPlayer();
+}
+
+function maybeClose(e) {
+  if (e.target === document.getElementById('overlay')) closeModal();
+}
+
+function showGrid(html) { document.getElementById('grid').innerHTML = html; }
+async function get(url) { const r = await fetch(url); return r.json(); }
+function enc(s) { return encodeURIComponent(s); }
+function esc(s) { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+loadTrending();
+
+</script>
+</body>
+</html>
